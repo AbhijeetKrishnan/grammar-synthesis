@@ -9,14 +9,14 @@ import numpy as np
 class GrammarSynthesisEnv(gymnasium.Env):
     metadata = {"render_modes": ["human"], "render_fps": None}
 
-    def __init__(self, grammar: str, start:str, reward_fn, max_len: int=400, render_mode=None):
-        self.parser = lark.Lark(grammar, parser='lalr', start=start)
+    def __init__(self, grammar: str, start_symbol:str, reward_fn, max_len: int=200, render_mode=None, parser:str = 'earley'):
+        self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
         self.start_symbol = self.parser.rules[0].origin
         self._num_rules = len(self.parser.rules)
         self.max_len = max_len
         self.terminals = [lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals]
         self.non_terminals = list({rule.origin for rule in self.parser.rules})
-        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(len(self.terminals) + len(self.non_terminals)))}
+        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(1, len(self.terminals) + len(self.non_terminals) + 1))}
         self.vocabulary_size = len(self.vocabulary)
         self.symbols = [] # TODO: convert to parse tree instead
         self.reward_fn = reward_fn
@@ -26,7 +26,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         
         A state is a list of tokens consisting of non-terminals and terminals in the leaf nodes of the partial parse tree
         """
-        self.observation_space = gymnasium.spaces.MultiDiscrete([self.vocabulary_size] * max_len) # could use spaces.Sequence or tokenizers pkg
+        self.observation_space = gymnasium.spaces.MultiDiscrete([self.vocabulary_size + 1] * max_len) # could use spaces.Sequence or tokenizers pkg
 
         """
         Actions
@@ -45,7 +45,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         "Construct observation from environment state"
 
         # print(self.symbols)
-        return np.pad(np.array([self.vocabulary[token] for token in self.symbols]), (0, self.max_len - len(self.symbols)))
+        return np.pad(np.array([self.vocabulary[token] for token in self.symbols]), (0, max(0, self.max_len - len(self.symbols))))
 
     def _get_info(self):
         "Obtain auxiliary info returned by `step` and `reset`"
