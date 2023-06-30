@@ -78,16 +78,16 @@ L O L
 
 ## Observation Space
 
-The observation space is a fixed length `numpy` array of token IDs representing the current expansion of the string. $\text{max\_len}$ is the fixed, maximum length of a string. The token IDs represent terminals and non-terminals in the grammar, and begin from $1$. The array is padded out to the fixed length if shorter than it.
+The observation space is a fixed length `numpy` array of token IDs representing the current expansion of the string. $\text{max_len}$ is the fixed, maximum length of a string. The token IDs represent terminals and non-terminals in the grammar, and begin from $1$. The array is padded out to the fixed length if shorter than it.
 
 ## Action Space
 
-The action space is an integer in $[0, |P| \times \text{max\_len})$ representing the action of first choosing a non-terminal to expand, and the production rule to use to expand it. The index of the non-terminal being expanded $s_i$ and the index of the production rule used $p_i$ are encoded in the action $a$ as -
+The action space is an integer in $[0, |P| \times \text{max_len})$ representing the action of first choosing a non-terminal to expand, and the production rule to use to expand it. The index of the non-terminal being expanded $s_i$ and the index of the production rule used $p_i$ are encoded in the action $a$ as -
 
 $$
 \begin{align}
-    p_i &= \left\lfloor\frac{a}{\text{max\_len}}\right\rfloor \\
-    s_i &= a \bmod \text{max\_len}
+    p_i &= \left\lfloor\frac{a}{\text{max_len}}\right\rfloor \\
+    s_i &= a \bmod \text{max_len}
 \end{align}
 $$
 
