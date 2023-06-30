@@ -8,10 +8,8 @@ A CFG $(V, \Sigma, P, S)$ is used to define the space of all programs. A sample 
 
 $$
 \begin{align*}
-    S &\rightarrow A\ S\ B\ |\ B S \\
-    A &\rightarrow a\ A\ |\ B\ C \\
-    B &\rightarrow b\ B\ |\ C \\
-    C &\rightarrow c \\
+    S &\rightarrow S\ S\ |\ l\ A\ l \\
+    A &\rightarrow o\ A\ |\ o \\
 \end{align*}
 $$
 
