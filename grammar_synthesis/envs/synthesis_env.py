@@ -16,9 +16,9 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.max_len = max_len
         self.terminals = [lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals]
         self.non_terminals = list({rule.origin for rule in self.parser.rules})
-        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(1, len(self.terminals) + len(self.non_terminals) + 1))}
+        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(len(self.terminals) + len(self.non_terminals)))}
         self.vocabulary_size = len(self.vocabulary)
-        self.symbols = [] # TODO: convert to parse tree instead
+        self.symbols = []
         self.reward_fn = reward_fn
 
         """
@@ -26,7 +26,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         
         A state is a list of tokens consisting of non-terminals and terminals in the leaf nodes of the partial parse tree
         """
-        self.observation_space = gymnasium.spaces.MultiDiscrete([self.vocabulary_size + 1] * max_len) # could use spaces.Sequence or tokenizers pkg
+        self.observation_space = gymnasium.spaces.MultiDiscrete([self.vocabulary_size] * max_len) # could use spaces.Sequence or tokenizers pkg
 
         """
         Actions
@@ -89,12 +89,12 @@ class GrammarSynthesisEnv(gymnasium.Env):
         # print('\n'.join([f'({idx}, {str(token)})' for token, idx in self.vocabulary.items()]))
         assert self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
 
-        self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion # TODO: modify a parse tree instead
+        self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
         truncated = len(self.symbols) > self.max_len
         if terminated:
-            reward = self.reward_fn(self.symbols) # TODO: should be getting parse tree instead of symbol list
+            reward = self.reward_fn(self.symbols)
         else:
             reward = 0
         obs = self._get_obs()
