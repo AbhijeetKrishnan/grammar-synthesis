@@ -73,7 +73,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
             if type(symbol) == lark.grammar.NonTerminal:
                 for rule_idx, rule in enumerate(self.parser.rules):
                     if symbol == rule.origin:
-                        mask[rule_idx * self.max_len + nt_idx] = 1
+                        mask[rule_idx * self.max_len + nt_idx] = 1 # if 0, action is masked (illegal), else not masked (legal)
         return mask
     
     def act_to_action(self, act: Tuple[int, int]):
@@ -83,6 +83,10 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
     def step(self, action):
         rule_idx, nt_idx = action // self.max_len, action % self.max_len
+        # print(nt_idx, rule_idx)
+        # print('\n'.join([str(t) for t in enumerate(self.symbols)]))
+        # print('\n'.join([str(t) for t in enumerate(self.parser.rules)]))
+        # print('\n'.join([f'({idx}, {str(token)})' for token, idx in self.vocabulary.items()]))
         assert self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
 
         self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion # TODO: modify a parse tree instead
