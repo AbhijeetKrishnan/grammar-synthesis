@@ -9,7 +9,7 @@ import numpy as np
 class GrammarSynthesisEnv(gymnasium.Env):
     metadata = {"render_modes": ["human"], "render_fps": None}
 
-    def __init__(self, grammar: str, start_symbol:str, reward_fn, max_len: int=200, render_mode=None, parser:str = 'earley'):
+    def __init__(self, grammar: str, start_symbol:str, reward_fn, max_len: int=200, render_mode=None, parser:str = 'earley', termination_reward: float=0.0):
         self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
         self.start_symbol = self.parser.rules[0].origin
         self._num_rules = len(self.parser.rules)
@@ -20,6 +20,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.vocabulary_size = len(self.vocabulary)
         self.symbols = []
         self.reward_fn = reward_fn
+        self.termination_reward = termination_reward
 
         """
         Observations
@@ -90,13 +91,14 @@ class GrammarSynthesisEnv(gymnasium.Env):
         assert self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
 
         self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
+        self.symbols = self.symbols[:self.max_len]
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
-        truncated = len(self.symbols) > self.max_len
-        if terminated:
-            reward = self.reward_fn(self.symbols)
+        truncated = len(self.symbols) >= self.max_len
+        if terminated: # TODO: shouldn't this account for truncated as well?
+            reward = self.reward_fn(self.symbols, self)
         else:
-            reward = 0
+            reward = self.termination_reward # TODO: this should be part of reward fn, no?
         obs = self._get_obs()
         info = self._get_info()
 
