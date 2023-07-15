@@ -2,14 +2,12 @@ import gymnasium
 
 import grammar_synthesis
 
-def reward_fn(symbol_list):
-    return len(symbol_list)
 
 env = gymnasium.make(
     'GrammarSynthesisEnv-v0', 
-    grammar=open('grammar_synthesis/envs/assets/karel-dsl.lark').read(), 
-    start_symbol='program', 
-    reward_fn=lambda symbol_list, _: len(symbol_list),
+    grammar=open('grammar_synthesis/envs/assets/example.lark').read(), 
+    start_symbol='s', 
+    reward_fn=lambda program_text: len(program_text),
     max_len=20)
 
 num_episodes = 5
@@ -20,6 +18,6 @@ for _ in range(num_episodes):
     while not terminated and not truncated:
         mask = info['action_mask']
         action = env.action_space.sample(mask=mask)
-        obs, terminated, reward, truncated, info = env.step(action)
+        obs, reward, terminated, truncated, info = env.step(action)
     env.render()
 env.close()

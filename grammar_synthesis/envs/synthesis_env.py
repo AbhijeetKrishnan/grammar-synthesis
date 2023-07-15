@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Callable
 
 import gymnasium
 import lark
@@ -9,18 +9,17 @@ import numpy as np
 class GrammarSynthesisEnv(gymnasium.Env):
     metadata = {"render_modes": ["human"], "render_fps": None}
 
-    def __init__(self, grammar: str, start_symbol:str, reward_fn, max_len: int=200, render_mode=None, parser:str = 'earley', termination_reward: float=0.0):
+    def __init__(self, grammar: str, start_symbol: str, reward_fn: Callable[[str], float], max_len: int=200, render_mode=None, parser: str='earley'):
         self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
         self.start_symbol = self.parser.rules[0].origin
         self._num_rules = len(self.parser.rules)
-        self.max_len = max_len
+        self.max_len = max_len # max allowed sequence length
         self.terminals = [lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals]
         self.non_terminals = list({rule.origin for rule in self.parser.rules})
         self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(len(self.terminals) + len(self.non_terminals)))}
         self.vocabulary_size = len(self.vocabulary)
         self.symbols = []
-        self.reward_fn = reward_fn
-        self.termination_reward = termination_reward
+        self.reward_fn = reward_fn # reward from MDP from finished program used as policy
 
         """
         Observations
@@ -45,7 +44,6 @@ class GrammarSynthesisEnv(gymnasium.Env):
     def _get_obs(self):
         "Construct observation from environment state"
 
-        # print(self.symbols)
         return np.pad(np.array([self.vocabulary[token] for token in self.symbols]), (0, max(0, self.max_len - len(self.symbols))))
 
     def _get_info(self):
@@ -65,7 +63,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
         return obs, info
     
-    def get_action_mask(self):
+    def get_action_mask(self) -> np.ndarray:
         "Return valid action mask for current state"
         # TODO: make more efficient by pre-computing some stuff or using np loops
 
@@ -77,28 +75,32 @@ class GrammarSynthesisEnv(gymnasium.Env):
                         mask[rule_idx * self.max_len + nt_idx] = 1 # if 0, action is masked (illegal), else not masked (legal)
         return mask
     
-    def act_to_action(self, act: Tuple[int, int]):
+    def act_to_action(self, act: Tuple[int, int]) -> int:
+        "Encode a (non-terminal index, rule index) as an action"
+        
         nt_idx, rule_idx = act
         action = rule_idx * self.max_len + nt_idx
         return action
 
     def step(self, action):
         rule_idx, nt_idx = action // self.max_len, action % self.max_len
-        # print(nt_idx, rule_idx)
-        # print('\n'.join([str(t) for t in enumerate(self.symbols)]))
-        # print('\n'.join([str(t) for t in enumerate(self.parser.rules)]))
-        # print('\n'.join([f'({idx}, {str(token)})' for token, idx in self.vocabulary.items()]))
         assert self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
 
         self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
-        self.symbols = self.symbols[:self.max_len]
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
-        truncated = len(self.symbols) >= self.max_len
-        if terminated: # TODO: shouldn't this account for truncated as well?
-            reward = self.reward_fn(self.symbols, self)
-        else:
-            reward = self.termination_reward # TODO: this should be part of reward fn, no?
+        truncated = len(self.symbols) > self.max_len
+        if truncated:
+            self.symbols = self.symbols[:self.max_len]
+
+        if terminated: # get reward from external MDP by using finished program as policy
+            program_text = ' '.join(str(self.parser.get_terminal(symbol.name).pattern) for symbol in self.symbols)
+            reward = self.reward_fn(program_text)
+        elif truncated: # partial program with len >= max_len; cannot be used as policy
+            reward = 0
+        else: # partial program; cannot be used as policy
+            reward = 0
+
         obs = self._get_obs()
         info = self._get_info()
 
