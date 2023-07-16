@@ -92,3 +92,14 @@ The action space is an integer in $[0, |P| \times l_{\text{max}})$ representing 
 \]
 
 The implementation provides an action mask returned in the `info` dict as `info['action_mask']` that masks out invalid actions. Thus, we can sample valid actions repeatedly using `env.action_space.sample(mask=mask)`.
+
+## Theory
+
+The grammar synthesis task $\text{Synthesis}(M, G)$ can be framed as an MDP $M' = (S', A', T', R')$ as follows -
+
+- $S'$: the currently expanded partial program (partial parse tree), represented as a list $[s_0, s_1, ...], s_i \in V \cup \Sigma$
+- $A'$: the action of choosing a particular non-terminal in the current state to expand, and the production rule to use
+- $T'$: a deterministic transition function that is $1$ for every legal expansion, with the subsequent state being one with the selected
+non-terminal replaced with the rule body of the selected rule, and 0 otherwise
+- $R'$: a reward function that uses the secondary MDP's reward function when we have a complete program (i.e., all symbols in the current state
+are terminals), and $0$ otherwise.
