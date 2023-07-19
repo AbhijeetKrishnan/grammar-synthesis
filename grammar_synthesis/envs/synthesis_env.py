@@ -9,7 +9,7 @@ import numpy as np
 class GrammarSynthesisEnv(gymnasium.Env):
     metadata = {"render_modes": ["human"], "render_fps": None}
 
-    def __init__(self, grammar: str, start_symbol: str, reward_fn: Callable[[str], float], max_len: int=200, render_mode=None, parser: str='earley'):
+    def __init__(self, grammar: str, start_symbol: str, reward_fn: Callable[[str], float], max_len: int=200, render_mode=None, parser: str='earley', mdp_config=None):
         self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
         self.start_symbol = self.parser.rules[0].origin
         self._num_rules = len(self.parser.rules)
@@ -20,6 +20,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.vocabulary_size = len(self.vocabulary)
         self.symbols = []
         self.reward_fn = reward_fn # reward from MDP from finished program used as policy
+        self.mdp_config = mdp_config # secondary MDP config arguments
 
         """
         Observations
@@ -95,7 +96,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
         if terminated: # get reward from external MDP by using finished program as policy
             program_text = ' '.join(str(self.parser.get_terminal(symbol.name).pattern) for symbol in self.symbols)
-            reward = self.reward_fn(program_text)
+            reward = self.reward_fn(program_text, self.mdp_config)
         elif truncated: # partial program with len >= max_len; cannot be used as policy
             reward = 0
         else: # partial program; cannot be used as policy
