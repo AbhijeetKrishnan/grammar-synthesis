@@ -45,14 +45,14 @@ import gymnasium
 
 import grammar_synthesis
 
-def reward_fn(symbol_list):
-    return len(symbol_list)
+def reward_fn(program_text: str, mdp_config: dict):
+    return len(program_text)
 
 env = gymnasium.make(
     'GrammarSynthesisEnv-v0', 
     grammar=open('grammar_synthesis/envs/assets/example.lark').read(), 
     start_symbol='s', 
-    reward_fn=lambda symbol_list: len(symbol_list),
+    reward_fn=reward_fn,
     max_len=20)
 
 num_episodes = 5
@@ -64,6 +64,7 @@ for _ in range(num_episodes):
         mask = info['action_mask']
         action = env.action_space.sample(mask=mask)
         obs, terminated, reward, truncated, info = env.step(action)
+    env.render()
 env.close()
 ```
 
@@ -71,7 +72,7 @@ env.close()
 > python random_generator.py
 L O L L O O O L
 L O O O L
-L O O L L O O L L O L L O L s s s s L a L
+L O O L L O O L L O L L O L s s s s L a
 L O L L O O O O O O O L L O O L L O L
 L O L
 ```

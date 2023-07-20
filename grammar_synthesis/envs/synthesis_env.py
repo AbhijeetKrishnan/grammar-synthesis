@@ -7,7 +7,7 @@ import numpy as np
 
 
 class GrammarSynthesisEnv(gymnasium.Env):
-    metadata = {"render_modes": ["human"], "render_fps": None}
+    metadata = {"render_modes": ["human"], "render_fps": 1}
 
     def __init__(self, grammar: str, start_symbol: str, reward_fn: Callable[[str], float], max_len: int=200, render_mode=None, parser: str='earley', mdp_config=None):
         self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
@@ -108,7 +108,20 @@ class GrammarSynthesisEnv(gymnasium.Env):
         return obs, reward, terminated, truncated, info
 
     def render(self):
-        print(' '.join([str(symbol.name) for symbol in self.symbols]))
+
+        def nt_str(non_terminal):
+            return f'_{non_terminal.name}_'
+        
+        def t_str(terminal):
+            return f'{self.parser._terminals_dict[terminal.name].pattern.value}'
+
+        def sym_str(symbol):
+            if type(symbol) == lark.grammar.NonTerminal:
+                return nt_str(symbol)
+            elif type(symbol) == lark.grammar.Terminal:
+                return t_str(symbol)
+        
+        print(' '.join([sym_str(symbol) for symbol in self.symbols]))
 
     def close(self):
         pass
