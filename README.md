@@ -68,14 +68,15 @@ for _ in range(num_episodes):
 env.close()
 ```
 
-```bash
-> python random_generator.py
-L O L L O O O L
-L O O O L
-L O O L L O O L L O L L O L s s s s L a
-L O L L O O O O O O O L L O O L L O L
-L O L
 ```
+l o l l o o o l
+l o o o l
+l o o l l o o l l o l l o l _s_ _s_ _s_ _s_ l _a_
+l o l l o o o o o o o l l o o l l o l
+l o l
+```
+
+More policies are provided under `grammar_synthesis/policy/`. Their use is demonstrated in `demo.py`.
 
 ## Observation Space
 
