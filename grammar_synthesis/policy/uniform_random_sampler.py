@@ -1,9 +1,6 @@
-import argparse
 import random
 from typing import Dict, List, Optional, Union
 
-import grammar_synthesis
-import gymnasium
 import lark.grammar
 from lark import Lark
 
@@ -11,11 +8,15 @@ symbol = Union[lark.grammar.NonTerminal, lark.grammar.Terminal]
 
 class UniformRandomSampler:
     """
-    McKenzie, B. (1997). Generating Strings at Random from a Context Free Grammar. https://doi.org/10/97
+    A grammar synthesis policy that randomly samples from available actions by uniformly weighting the number of strings
+    that can be produced.
+
+    Implements the algorithm due to McKenzie, B. (1997). Generating Strings at Random from a Context Free 
+    Grammar. https://doi.org/10/97
     """
 
     def _build_rule_map(self, parser: Lark) -> None:
-        "Build map of non-terminals to expansion index as required by algorithm"
+        "Build map of non-terminals to expansion index as required by the algorithm"
         
         nt_cnt = 0
         for rule in parser.rules:
@@ -28,7 +29,7 @@ class UniformRandomSampler:
             self._production_list[nt_idx].append(rule.expansion)
 
     def _nt_idx(self, nt: lark.grammar.NonTerminal) -> int:
-        "Return non-terminal index i in production rules of grammar"
+        "Return non-terminal index i in the production rules of the grammar"
 
         assert nt in self._nt_map
         return self._nt_map[nt]
@@ -149,45 +150,5 @@ class UniformRandomSampler:
         program = ' '.join([self._parser._terminals_dict[terminal.name].pattern.value for terminal in symbol_list])
         return program
 
-    def get_action(self, obs):
-        pass
-
-class RandomSampler:
-    def __init__(self, env):
-        self._action_space = env.action_space
-
-    def get_action(self, obs, mask):
-        return self._action_space.sample(mask=mask)
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--num_episodes', type=int, default=5)
-    parser.add_argument('-l', '--max_len', type=int, default=20)
-    parser.add_argument('--seed', type=int, default=1)
-    args = parser.parse_args()
-
-    env = gymnasium.make(
-        'GrammarSynthesisEnv-v0', 
-        grammar=open('grammar_synthesis/envs/assets/example.lark').read(), 
-        start_symbol='s', 
-        reward_fn=lambda program_text, mdp_config: len(program_text),
-        max_len=args.max_len)
-    
-    num_episodes = args.num_episodes
-    env.action_space.seed(args.seed)
-    max_len = args.max_len
-
-    uniform_agent = UniformRandomSampler(env.parser, max_len)
-    random_agent = RandomSampler(env)
-
-    for _ in range(num_episodes):
-        obs, info, terminated, truncated = *env.reset(), False, False
-        while not terminated and not truncated:
-            mask = info['action_mask']
-            action = random_agent.get_action(obs, mask)
-            obs, reward, terminated, truncated, info = env.step(action)
-        env.render()
-    env.close()
-
-    program = uniform_agent.generate_string(5)
-    print(program)
+    def get_action(self, obs, mask=None):
+        pass # TODO:
