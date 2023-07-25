@@ -83,11 +83,25 @@ class GrammarSynthesisEnv(gymnasium.Env):
         action = rule_idx * self.max_len + nt_idx
         return action
 
-    def step(self, action):
+    def decode_action(self, action: int) -> Tuple[int, int]:
         rule_idx, nt_idx = action // self.max_len, action % self.max_len
-        assert self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
+        return rule_idx, nt_idx
+    
+    def is_valid(self, action: int) -> bool:
+        "Test if an action is valid"
 
-        self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
+        nt_idx, rule_idx = self.decode_action(action)
+        return (
+            nt_idx < len(self.symbols) and 
+            rule_idx < len(self.parser.rules) and 
+            self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
+        )
+
+    def step(self, action):
+        
+        nt_idx, rule_idx = self.decode_action(action)
+        if self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
+            self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
         truncated = len(self.symbols) > self.max_len
