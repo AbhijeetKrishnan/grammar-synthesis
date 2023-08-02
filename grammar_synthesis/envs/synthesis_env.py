@@ -76,16 +76,17 @@ class GrammarSynthesisEnv(gymnasium.Env):
                         mask[rule_idx * self.max_len + nt_idx] = 1 # if 0, action is masked (illegal), else not masked (legal)
         return mask
     
-    def act_to_action(self, act: Tuple[int, int]) -> int:
+    def encode_action(self, decoded_action: Tuple[int, int]) -> int:
         "Encode a (non-terminal index, rule index) as an action"
         
-        nt_idx, rule_idx = act
+        nt_idx, rule_idx = decoded_action
         action = rule_idx * self.max_len + nt_idx
         return action
 
     def decode_action(self, action: int) -> Tuple[int, int]:
+        "Decode an action as (non-terminal index, rule index)"
         rule_idx, nt_idx = action // self.max_len, action % self.max_len
-        return rule_idx, nt_idx
+        return nt_idx, rule_idx
     
     def is_valid(self, action: int) -> bool:
         "Test if an action is valid"
@@ -102,6 +103,8 @@ class GrammarSynthesisEnv(gymnasium.Env):
         nt_idx, rule_idx = self.decode_action(action)
         if self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
             self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
+        else:
+            print(f'Attempted invalid action {action} with NT idx {nt_idx} and rule idx {rule_idx}')
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
         truncated = len(self.symbols) > self.max_len
