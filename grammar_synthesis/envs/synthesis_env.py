@@ -13,7 +13,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
                  render_mode=None, truncation_reward=0.0, parser: str='earley', mdp_config=None):
         self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
         self.start_symbol = self.parser.rules[0].origin
-        self._num_rules = len(self.parser.rules)
+        self.num_rules = len(self.parser.rules)
         self.max_len = max_len # max allowed sequence length
         self.terminals = [lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals]
         self.non_terminals = list({rule.origin for rule in self.parser.rules})
@@ -36,7 +36,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
         An action is a single production rule applied to a single non-terminal in the current state
         """
-        self.action_space = gymnasium.spaces.Discrete(self._num_rules * self.max_len) # could use spaces.Sequence but length needs to be equal to sequence across obs and actions
+        self.action_space = gymnasium.spaces.Discrete(self.num_rules * self.max_len) # could use spaces.Sequence but length needs to be equal to sequence across obs and actions
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -70,7 +70,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         "Return valid action mask for current state"
         # TODO: make more efficient by pre-computing some stuff or using np loops
 
-        mask = np.array([0] * (self._num_rules * self.max_len), dtype=np.int8)
+        mask = np.array([0] * (self.num_rules * self.max_len), dtype=np.int8)
         for nt_idx, symbol in enumerate(self.symbols):
             if type(symbol) == lark.grammar.NonTerminal:
                 for rule_idx, rule in enumerate(self.parser.rules):
@@ -124,22 +124,21 @@ class GrammarSynthesisEnv(gymnasium.Env):
         info = self._get_info()
 
         return obs, reward, terminated, truncated, info
-
-    def render(self):
-
-        def nt_str(non_terminal):
-            return f'_{non_terminal.name}_'
+    
+    def nt_str(self, non_terminal):
+        return f'_{non_terminal.name}_'
         
-        def t_str(terminal):
-            return f'{self.parser._terminals_dict[terminal.name].pattern.value}'
+    def t_str(self, terminal):
+        return f'{self.parser._terminals_dict[terminal.name].pattern.value}'
 
-        def sym_str(symbol):
-            if type(symbol) == lark.grammar.NonTerminal:
-                return nt_str(symbol)
-            elif type(symbol) == lark.grammar.Terminal:
-                return t_str(symbol)
-        
-        print(' '.join([sym_str(symbol) for symbol in self.symbols]))
+    def sym_str(self, symbol):
+        if type(symbol) == lark.grammar.NonTerminal:
+            return self.nt_str(symbol)
+        elif type(symbol) == lark.grammar.Terminal:
+            return self.t_str(symbol)
+
+    def render(self):  
+        print(' '.join([self.sym_str(symbol) for symbol in self.symbols]))
 
     def close(self):
         pass
