@@ -2,7 +2,7 @@ import argparse
 
 import grammar_synthesis
 import gymnasium
-from grammar_synthesis.policy import RandomSampler, UniformRandomSampler
+from grammar_synthesis.policy import RandomSampler, UniformRandomSampler, ParsedPlayback
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
