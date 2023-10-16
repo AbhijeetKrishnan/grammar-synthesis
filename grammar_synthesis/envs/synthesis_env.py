@@ -49,10 +49,10 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
         return np.pad(np.array([self.vocabulary[token] for token in self.symbols]), (0, max(0, self.max_len - len(self.symbols))))
 
-    def _get_info(self):
+    def _get_info(self, is_valid=True):
         "Obtain auxiliary info returned by `step` and `reset`"
 
-        return {"action_mask": self.get_action_mask()}
+        return {"action_mask": self.get_action_mask(), 'is_valid': is_valid}
 
     def reset(self, seed=None, options=None):
         "Initiate a new episode"
@@ -105,8 +105,10 @@ class GrammarSynthesisEnv(gymnasium.Env):
         nt_idx, rule_idx = self.decode_action(action)
         if self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
             self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
+            is_valid = True
         else:
             print(f'Attempted invalid action {action} with NT idx {nt_idx} and rule idx {rule_idx}')
+            is_valid = False
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
         truncated = len(self.symbols) > self.max_len
@@ -121,7 +123,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         else: # partial program; cannot be used as policy
             reward = 0.0 # sum(-1.0 for symbol in self.symbols if type(symbol) == lark.grammar.NonTerminal)
         obs = self._get_obs()
-        info = self._get_info()
+        info = self._get_info(is_valid=is_valid)
 
         return obs, reward, terminated, truncated, info
     
