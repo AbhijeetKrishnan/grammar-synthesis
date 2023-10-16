@@ -15,8 +15,8 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.start_symbol = self.parser.rules[0].origin
         self.num_rules = len(self.parser.rules)
         self.max_len = max_len # max allowed sequence length
-        self.terminals = [lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals]
-        self.non_terminals = list({rule.origin for rule in self.parser.rules})
+        self.terminals = sorted([lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals], key=lambda terminal: terminal.name)
+        self.non_terminals = sorted(list({rule.origin for rule in self.parser.rules}), key=lambda non_terminal: non_terminal.name)
         self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(len(self.terminals) + len(self.non_terminals)))}
         self.vocabulary_size = len(self.vocabulary)
         self.symbols = []
