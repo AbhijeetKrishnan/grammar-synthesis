@@ -1,5 +1,15 @@
+from collections.abc import Iterable
+
 import parglare
 
+# Ref.: https://stackoverflow.com/a/2158532
+def flatten(xs):
+    for x in xs:
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            yield from flatten(x)
+        elif x is not None:
+            yield x
+            
 class ParsedPlayback:
     "A policy that parses a program into a sequence of actions and plays them back"
 
@@ -10,18 +20,20 @@ class ParsedPlayback:
         self._curr_idx = None
 
     def _visit(self, node, subresults, depth):
+        s = None
         if node.is_nonterm():
-            self._actions.append(node.production)
-            return subresults
+            s = [node.production]
+        if subresults:
+            s += subresults
+        return s
 
     def build_actions(self, program: str):
+        parse_tree = self._parser.parse(program)
+        result = parglare.visitor(parse_tree, parglare.trees.tree_node_iterator, self._visit)
+        actions = list(flatten(result))
+
         self._actions = []
         self._curr_idx = 0
-        parse_tree = self._parser.parse(program)
-        parglare.visitor(parse_tree, parglare.trees.tree_node_iterator, self._visit)
-        self._actions.reverse()
-        actions = self._actions.copy()
-        self._actions = []
         symbol_list = [self._grammar.start_symbol]
         for production in actions:
             lhs = production.symbol

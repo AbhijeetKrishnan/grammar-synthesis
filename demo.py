@@ -12,7 +12,7 @@ def main():
     parser.add_argument('--seed', type=int, default=1)
     args = parser.parse_args()
 
-    with open('grammar_synthesis/envs/assets/json.pg') as grammar_file:
+    with open('grammar_synthesis/envs/assets/example.pg') as grammar_file:
         env = gymnasium.make(
             'GrammarSynthesisEnv-v0', 
             grammar=grammar_file.read(), 
@@ -34,28 +34,7 @@ def main():
         env.render()
 
     playback_agent = ParsedPlayback(env)
-    program_text = """{
-    "glossary": {
-        "title": "example glossary",
-		"GlossDiv": {
-            "title": "S",
-			"GlossList": {
-                "GlossEntry": {
-                    "ID": "SGML",
-					"SortAs": "SGML",
-					"GlossTerm": "Standard Generalized Markup Language",
-					"Acronym": "SGML",
-					"Abbrev": "ISO 8879:1986",
-					"GlossDef": {
-                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
-						"GlossSeeAlso": ["GML", "XML"]
-                    },
-					"GlossSee": "markup"
-                }
-            }
-        }
-    }
-}"""
+    program_text = """lollol"""
     playback_agent.build_actions(program_text)
     print('=' * 5, f'Playback Agent ({program_text})', '=' * 5)
     for _ in range(num_episodes):
