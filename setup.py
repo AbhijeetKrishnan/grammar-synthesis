@@ -13,7 +13,7 @@ setup(
     long_description_context_type="text/markdown",
     url="https://github.com/AbhijeetKrishnan/grammar-synthesis",
     python_requires=">=3.11.3",
-    install_requires=["gymnasium>=0.28.1", "lark>=1.1.2"],
+    install_requires=["gymnasium>=0.28.1", "parglare>=0.16.1"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: The Unlicense (Unlicense)",
