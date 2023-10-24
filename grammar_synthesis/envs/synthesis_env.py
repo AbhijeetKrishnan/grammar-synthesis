@@ -1,28 +1,32 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 import gymnasium
-import lark
-import lark.grammar
+import parglare
+import parglare.grammar
 import numpy as np
 
 
 class GrammarSynthesisEnv(gymnasium.Env):
     metadata = {"render_modes": ["human"], "render_fps": 1}
 
-    def __init__(self, grammar: str, start_symbol: str, reward_fn: Callable[[str], float], max_len: int=100, 
-                 render_mode=None, truncation_reward=0.0, parser: str='earley', mdp_config=None):
-        self.parser = lark.Lark(grammar, parser=parser, start=start_symbol)
-        self.start_symbol = self.parser.rules[0].origin
-        self.num_rules = len(self.parser.rules)
-        self.max_len = max_len # max allowed sequence length
-        self.terminals = sorted([lark.grammar.Terminal(terminal_def.name) for terminal_def in self.parser.terminals], key=lambda terminal: terminal.name)
-        self.non_terminals = sorted(list({rule.origin for rule in self.parser.rules}), key=lambda non_terminal: non_terminal.name)
-        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.non_terminals, range(len(self.terminals) + len(self.non_terminals)))}
-        self.vocabulary_size = len(self.vocabulary)
-        self.symbols = []
+    def __init__(self, grammar: str, reward_fn: Callable[[str], float], max_len: int=100, 
+                 render_mode=None, truncation_reward: float=0.0, mdp_config=None):
+        
         self.reward_fn = reward_fn # reward from MDP from finished program used as policy
-        self.mdp_config = mdp_config # secondary MDP config arguments
+        self.max_len = max_len # max allowed sequence length
         self.truncation_reward = truncation_reward # reward for exceeding max length
+        self.mdp_config = mdp_config # secondary MDP config arguments
+
+        self.grammar = parglare.Grammar.from_string(grammar)
+
+        self.rules = self.grammar.productions[1:] # parglare adds an extra production 0: S' -> [start_symbol]
+        self.num_rules = len(self.rules)
+        self.terminals = sorted([value for key, value in self.grammar.terminals.items() if key not in ('STOP', 'EMPTY')], key=lambda x: x.name)
+        self.nonterminals = sorted([value for key, value in self.grammar.nonterminals.items() if key not in ("S'")], key=lambda x: x.name)
+        self.vocabulary_size = len(self.terminals) + len(self.nonterminals)
+        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.nonterminals, range(self.vocabulary_size))}
+
+        self.symbols = [] # list of tokens in the current state
 
         """
         Observations
@@ -44,7 +48,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.window = None
         self.clock = None
 
-    def _get_obs(self):
+    def _get_obs(self) -> np.ndarray:
         "Construct observation from environment state"
 
         return np.pad(np.array([self.vocabulary[token] for token in self.symbols]), (0, max(0, self.max_len - len(self.symbols))))
@@ -53,13 +57,16 @@ class GrammarSynthesisEnv(gymnasium.Env):
         "Obtain auxiliary info returned by `step` and `reset`"
 
         return {"action_mask": self.get_action_mask(), 'is_valid': is_valid}
+    
+    def _repr_state(self):
+        return ' '.join(str(symbol.name) for symbol in self.symbols)
 
     def reset(self, seed=None, options=None):
         "Initiate a new episode"
 
         super().reset(seed=seed)
 
-        self.symbols = [self.start_symbol] # list of tokens starts with start symbol
+        self.symbols = [self.grammar.start_symbol] # list of tokens starts with start symbol
 
         obs = self._get_obs()
         info = self._get_info()
@@ -72,10 +79,10 @@ class GrammarSynthesisEnv(gymnasium.Env):
 
         mask = np.array([0] * (self.num_rules * self.max_len), dtype=np.int8)
         for nt_idx, symbol in enumerate(self.symbols):
-            if type(symbol) == lark.grammar.NonTerminal:
-                for rule_idx, rule in enumerate(self.parser.rules):
-                    if symbol == rule.origin:
-                        mask[rule_idx * self.max_len + nt_idx] = 1 # if 0, action is masked (illegal), else not masked (legal)
+            if type(symbol) == parglare.grammar.NonTerminal:
+                for rule in self.grammar.get_productions(symbol.name):
+                    rule_idx = rule.prod_id - 1
+                    mask[rule_idx * self.max_len + nt_idx] = 1 # if 0, action is masked (illegal), else not masked (legal)
         return mask
     
     def encode_action(self, decoded_action: Tuple[int, int]) -> int:
@@ -90,22 +97,27 @@ class GrammarSynthesisEnv(gymnasium.Env):
         rule_idx, nt_idx = action // self.max_len, action % self.max_len
         return nt_idx, rule_idx
     
-    def is_valid(self, action: int) -> bool:
+    def is_valid(self, action: Union[int, Tuple[int, int]]) -> bool:
         "Test if an action is valid"
 
-        nt_idx, rule_idx = self.decode_action(action)
+        if type(action) == int:
+            nt_idx, rule_idx = self.decode_action(action)
+        else:
+            nt_idx, rule_idx = action
         return (
             nt_idx < len(self.symbols) and 
-            rule_idx < len(self.parser.rules) and 
-            self.symbols[nt_idx] == self.parser.rules[rule_idx].origin
+            rule_idx < len(self.rules) and 
+            self.symbols[nt_idx] == self.rules[rule_idx].symbol
         )
 
-    def step(self, action):
+    def step(self, action: Union[int, Tuple[int, int]]):
         
-        nt_idx, rule_idx = self.decode_action(action)
+        if type(action) == int:
+            nt_idx, rule_idx = self.decode_action(action)
+        else:
+            nt_idx, rule_idx = action
         if self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
-            self.symbols[nt_idx:nt_idx+1] = self.parser.rules[rule_idx].expansion
-            is_valid = True
+            self.symbols[nt_idx:nt_idx+1] = list(self.rules[rule_idx].rhs)
         else:
             print(f'Attempted invalid action {action} with NT idx {nt_idx} and rule idx {rule_idx}')
             is_valid = False
@@ -116,7 +128,7 @@ class GrammarSynthesisEnv(gymnasium.Env):
             self.symbols = self.symbols[:self.max_len]
 
         if terminated: # get reward from external MDP by using finished program as policy
-            program_text = ' '.join(str(self.parser.get_terminal(symbol.name).pattern) for symbol in self.symbols)
+            program_text = self._repr_state()
             reward = self.reward_fn(program_text, self.mdp_config)
         elif truncated: # partial program with len >= max_len; cannot be used as policy
             reward = self.truncation_reward
@@ -126,21 +138,9 @@ class GrammarSynthesisEnv(gymnasium.Env):
         info = self._get_info(is_valid=is_valid)
 
         return obs, reward, terminated, truncated, info
-    
-    def nt_str(self, non_terminal):
-        return f'_{non_terminal.name}_'
-        
-    def t_str(self, terminal):
-        return f'{self.parser._terminals_dict[terminal.name].pattern.value}'
-
-    def sym_str(self, symbol):
-        if type(symbol) == lark.grammar.NonTerminal:
-            return self.nt_str(symbol)
-        elif type(symbol) == lark.grammar.Terminal:
-            return self.t_str(symbol)
 
     def render(self):  
-        print(' '.join([self.sym_str(symbol) for symbol in self.symbols]))
+        print(self._repr_state())
 
     def close(self):
         pass
