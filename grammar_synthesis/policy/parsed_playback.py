@@ -1,43 +1,41 @@
-import lark
-from lark.parsers.earley_forest import ForestVisitor
-
-class RuleSequencer(ForestVisitor):
-    
-    def __init__(self, single_visit=False):
-        super().__init__(single_visit=single_visit)
-        self.sequence = []
-    
-    def visit_packed_node_in(self, node):
-        print('packed', node)
-        return node.children
-
-    def visit_symbol_node_in(self, node):
-        # print('symbol', node)
-        if type(node.s) == tuple:
-            print('symbol', node.s)
-        return node.children
+import parglare
 
 class ParsedPlayback:
     "A policy that parses a program into a sequence of actions and plays them back"
 
-    def __init__(self, parser: lark.Lark, program: str):
-        self._parser = parser
-        self._program = program
-        self._visitor = RuleSequencer(single_visit=True)
+    def __init__(self, env):
+        self._grammar = env.grammar
+        self._parser = parglare.Parser(self._grammar, build_tree=True)
+        self._actions = None
+        self._curr_idx = None
 
-    def _parse_program(self):
-        sppf = self._parser.parse(self._program)
-        self._visitor.visit(sppf)
-        print(self._visitor.sequence)
-        import code; code.interact(local=dict(globals(), **locals()))
-        # print(sppf.pretty())
+    def _visit(self, node, subresults, depth):
+        if node.is_nonterm():
+            self._actions.append(node.production)
+            return subresults
+
+    def build_actions(self, program: str):
+        self._actions = []
+        self._curr_idx = 0
+        parse_tree = self._parser.parse(program)
+        parglare.visitor(parse_tree, parglare.trees.tree_node_iterator, self._visit)
+        self._actions.reverse()
+        actions = self._actions.copy()
+        self._actions = []
+        symbol_list = [self._grammar.start_symbol]
+        for production in actions:
+            lhs = production.symbol
+            rhs = production.rhs
+            # replace first instance of lhs in symbol_list with rhs
+            for i, symbol in enumerate(symbol_list):
+                if symbol == lhs:
+                    symbol_list = symbol_list[:i] + rhs + symbol_list[i+1:]
+                    self._actions.append((i, production.prod_id - 1))
+                    break
 
     def get_action(self, obs, mask=None):
-        pass
-        
-
-if __name__ == '__main__':
-    parser = lark.Lark(open('grammar_synthesis/envs/assets/example.lark').read(), start='s', parser='earley', ambiguity='forest')
-    program = 'lool'
-    playback_agent = ParsedPlayback(parser, program)
-    playback_agent._parse_program()
+        if self._curr_idx >= len(self._actions):
+            self._curr_idx = 0
+        action = self._actions[self._curr_idx]
+        self._curr_idx += 1
+        return action
