@@ -116,11 +116,10 @@ class GrammarSynthesisEnv(gymnasium.Env):
             nt_idx, rule_idx = self.decode_action(action)
         else:
             nt_idx, rule_idx = action
-        if self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
+        if is_valid := self.is_valid(action): # if valid action, replace existing non-terminal with rule expansion
             self.symbols[nt_idx:nt_idx+1] = list(self.rules[rule_idx].rhs)
         else:
             print(f'Attempted invalid action {action} with NT idx {nt_idx} and rule idx {rule_idx}')
-            is_valid = False
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
         truncated = len(self.symbols) > self.max_len
