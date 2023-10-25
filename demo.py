@@ -50,9 +50,14 @@ def main():
     print('=' * 5, 'Uniform Random Agent', '=' * 5)
     for _ in range(num_episodes):
         n = random.randint(3, args.max_len)
-        program = uniform_agent.generate_string(n)
-        # print(uniform_agent.actions)
-        print(program)
+        uniform_agent.generate_actions(n)
+
+        obs, info, terminated, truncated = *env.reset(), False, False
+        while not terminated and not truncated:
+            mask = info['action_mask']
+            action = uniform_agent.get_action(obs, mask)
+            obs, reward, terminated, truncated, info = env.step(action)
+        env.render()
 
     env.close()
 
