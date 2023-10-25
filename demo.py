@@ -1,4 +1,5 @@
 import argparse
+import random
 
 import grammar_synthesis
 import gymnasium
@@ -21,7 +22,6 @@ def main():
     
     num_episodes = args.num_episodes
     env.action_space.seed(args.seed)
-    max_len = args.max_len
 
     random_agent = RandomSampler(env)
     print('=' * 5, 'Random Agent', '=' * 5)
@@ -46,9 +46,13 @@ def main():
         env.render()
 
     # TODO: fix usage of uniform agent once implementation is finished
-    # uniform_agent = UniformRandomSampler(env.parser, max_len)
-    # program = uniform_agent.generate_string(5)
-    # print(program)
+    uniform_agent = UniformRandomSampler(env, args.max_len)
+    print('=' * 5, 'Uniform Random Agent', '=' * 5)
+    for _ in range(num_episodes):
+        n = random.randint(3, args.max_len)
+        program = uniform_agent.generate_string(n)
+        # print(uniform_agent.actions)
+        print(program)
 
     env.close()
 
