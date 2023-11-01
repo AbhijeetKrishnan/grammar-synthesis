@@ -23,8 +23,8 @@ class GrammarSynthesisEnv(gymnasium.Env):
         self.num_rules = len(self.rules)
         self.terminals = sorted([value for key, value in self.grammar.terminals.items() if key not in ('STOP', 'EMPTY')], key=lambda x: x.name)
         self.nonterminals = sorted([value for key, value in self.grammar.nonterminals.items() if key not in ("S'")], key=lambda x: x.name)
-        self.vocabulary_size = len(self.terminals) + len(self.nonterminals)
-        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.nonterminals, range(self.vocabulary_size))}
+        self.vocabulary_size = len(self.terminals) + len(self.nonterminals) + 1 # for padding token
+        self.vocabulary = {token: id for (token, id) in zip(self.terminals + self.nonterminals, range(1, self.vocabulary_size))}
 
         self.symbols = [] # list of tokens in the current state
 
