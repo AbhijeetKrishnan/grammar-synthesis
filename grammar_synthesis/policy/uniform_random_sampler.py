@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import parglare
 import parglare.grammar
@@ -152,7 +152,7 @@ class UniformRandomSampler:
                     self._actions.append((i, production.prod_id - 1))
                     break
 
-    def get_action(self, obs, mask=None):
+    def get_action(self, obs, mask=None) -> Tuple[int, int]:
         if self._curr_idx >= len(self._actions):
             self._curr_idx = 0
         action = self._actions[self._curr_idx]
