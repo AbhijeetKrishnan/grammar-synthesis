@@ -15,11 +15,11 @@ def main():
 
     with open('grammar_synthesis/envs/assets/example.pg') as grammar_file:
         env = gymnasium.make(
-            'GrammarSynthesisEnv-v0', 
-            grammar=grammar_file.read(), 
+            'GrammarSynthesisEnv-v0',
+            grammar=grammar_file.read(),
             reward_fn=lambda program_text, mdp_config: len(program_text),
             max_len=args.max_len)
-    
+
     num_episodes = args.num_episodes
     env.action_space.seed(args.seed)
 
@@ -45,7 +45,6 @@ def main():
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
-    # TODO: fix usage of uniform agent once implementation is finished
     uniform_agent = UniformRandomSampler(env, args.max_len)
     print('=' * 5, 'Uniform Random Agent', '=' * 5)
     for _ in range(num_episodes):
@@ -60,6 +59,7 @@ def main():
         env.render()
 
     env.close()
+
 
 if __name__ == '__main__':
     main()

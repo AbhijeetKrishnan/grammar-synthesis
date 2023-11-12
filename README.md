@@ -1,6 +1,6 @@
 # grammar-synthesis
 
-A [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)-based custom environment that uses [Lark](https://github.com/lark-parser/lark) to represent tasks for program synthesis using a context-free grammar (CFG).
+A [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)-based custom environment that uses [`parglare`](http://www.igordejanovic.net/parglare) to represent tasks for program synthesis using a context-free grammar (CFG).
 
 Program synthesis is the task of writing a program in a (programming) language that fits some specification.
 
@@ -27,12 +27,12 @@ python3 setup.py install
 
 ## Usage
 
-The grammar must be specified using [Lark](https://github.com/lark-parser/lark)'s flavor of the EBNF syntax.
+The grammar must be specified using [`parglare`](https://github.com/lark-parser/lark)'s flavor of the BNF syntax.
 
 ```ebnf
-s: s s | "l" a "l"
+s: s s | "l" a "l";
 
-a: "o" a | "o"
+a: "o" a | "o";
 ```
 
 This sample grammar and others are provided under `grammar_synthesis/envs/assets/`.
@@ -49,9 +49,9 @@ def reward_fn(program_text: str, mdp_config: dict):
     return len(program_text)
 
 env = gymnasium.make(
-    'GrammarSynthesisEnv-v0', 
-    grammar=open('grammar_synthesis/envs/assets/example.lark').read(), 
-    start_symbol='s', 
+    'GrammarSynthesisEnv-v0',
+    grammar=open('grammar_synthesis/envs/assets/example.lark').read(),
+    start_symbol='s',
     reward_fn=reward_fn,
     max_len=20)
 
@@ -76,7 +76,13 @@ l o l l o o o o o o o l l o o l l o l
 l o l
 ```
 
-More policies are provided under `grammar_synthesis/policy/`. Their use is demonstrated in `demo.py`.
+More policies are provided under `grammar_synthesis/policy/`. The current list of included policies are -
+
+1. **Random**: samples a random non-terminal and valid rule at each step
+2. **Uniform Random**: implements the algorithm described in [McKenzie, B. (1997)](http://hdl.handle.net/10092/11231) to synthesize strings at random from a CFG
+3. **Parsed Playback**: repeats the actions required to synthesize an input program
+
+Their use is demonstrated in `demo.py`.
 
 ## Observation Space
 
@@ -86,12 +92,12 @@ The observation space is a fixed length `numpy` array of token IDs representing 
 
 The action space is an integer in $[0, |P| \times l_{\text{max}})$ representing the action of first choosing a non-terminal to expand, and the production rule to use to expand it. The index of the non-terminal being expanded $s_i$ and the index of the production rule used $p_i$ are encoded in the action $a$ as -
 
-\[
+$
 \begin{align}
-    p_i &= \left\lfloor\frac{a}{l_{\text{max}}}\right\rfloor \\
-    s_i &= a \bmod l_{\text{max}}
+p_i &= \left\lfloor\frac{a}{l*{\text{max}}}\right\rfloor \\
+s_i &= a \bmod l*{\text{max}}
 \end{align}
-\]
+$
 
 The implementation provides an action mask returned in the `info` dict as `info['action_mask']` that masks out invalid actions. Thus, we can sample valid actions repeatedly using `env.action_space.sample(mask=mask)`.
 
@@ -102,6 +108,6 @@ The grammar synthesis task $\text{Synthesis}(M, G)$ can be framed as an MDP $M' 
 - $S'$: the currently expanded partial program (partial parse tree), represented as a list $[s_0, s_1, ...], s_i \in V \cup \Sigma$
 - $A'$: the action of choosing a particular non-terminal in the current state to expand, and the production rule to use
 - $T'$: a deterministic transition function that is $1$ for every legal expansion, with the subsequent state being one with the selected
-non-terminal replaced with the rule body of the selected rule, and 0 otherwise
+  non-terminal replaced with the rule body of the selected rule, and $0$ otherwise
 - $R'$: a reward function that uses the secondary MDP's reward function when we have a complete program (i.e., all symbols in the current state
-are terminals), and $0$ otherwise.
+  are terminals), and $0$ otherwise.
