@@ -56,10 +56,11 @@ env = gymnasium.make(
     max_len=20)
 
 num_episodes = 5
-env.action_space.seed(1)
 
-for _ in range(num_episodes):
-    obs, info, terminated, truncated = *env.reset(), False, False
+for i in range(num_episodes):
+    obs, info = env.reset(seed=123 + i)
+    terminated = False
+    truncated = False
     while not terminated and not truncated:
         mask = info['action_mask']
         action = env.action_space.sample(mask=mask)
@@ -68,13 +69,14 @@ for _ in range(num_episodes):
 env.close()
 ```
 
-```
-l o l l o o o l
-l o o o l
-l o o l l o o l l o l l o l _s_ _s_ _s_ _s_ l _a_
-l o l l o o o o o o o l l o o l l o l
+<pre>
+l o o l l o l l o o l l o l l o o o <u>a</u> l <u>s</u> <u>s</u> <u>s</u> l <u>a</u> l l o o <u>a</u> l l <u>a</u> l <u>s</u> <u>s</u> l o <u>a</u> l l <u>a</u> l l o l <u>s</u> <u>s</u> <u>s</u> <u>s</u> l <u>a</u> l l <u>a</u> l l o <u>a</u> l <u>s</u> <u>s</u> l o l <u>s</u> <u>s</u> l o o
 l o l
-```
+l o o l l o l l o o o o l
+l o l l o l l o o o o l l <u>a</u> l l o l l o o l l <u>a</u> l l o o l l o l <u>s</u> <u>s</u> l o l l <u>a</u> l l o l l o o o l l o o l l o l <u>s</u> <u>s</u> l <u>a</u> l <u>s</u> <u>s</u> l o o l l o l l
+l o o l
+</pre>
+
 
 More policies are provided under `grammar_synthesis/policy/`. The current list of included policies are -
 

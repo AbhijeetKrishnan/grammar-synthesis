@@ -5,13 +5,15 @@ with open('README.md') as readme:
 
 setup(
     name="grammar_synthesis",
-    version="0.0.1",
+    version="0.1.0",
     author="Abhijeet Krishnan",
     author_email="abhijeet.krishnan@gmail.com",
     description="Gymnasium environment for CFG-based program synthesis.",
     long_description=long_description,
     long_description_context_type="text/markdown",
     url="https://github.com/AbhijeetKrishnan/grammar-synthesis",
+    package_data={"grammar_synthesis": ["py.typed"]},
+    packages=["grammar_synthesis"],
     python_requires=">=3.11.3",
     install_requires=["gymnasium>=0.28.1", "parglare>=0.16.1"],
     classifiers=[

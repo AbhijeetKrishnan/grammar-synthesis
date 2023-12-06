@@ -1,8 +1,11 @@
 import random
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import parglare
 import parglare.grammar
+
+from grammar_synthesis.envs.synthesis_env import GrammarSynthesisEnv
 
 
 class UniformRandomSampler:
@@ -14,10 +17,9 @@ class UniformRandomSampler:
     Grammar. http://hdl.handle.net/10092/11231
     """
 
-    def __init__(self, env, n: int, seed: Optional[int] = None):
+    def __init__(self, env: GrammarSynthesisEnv, n: int, seed: Optional[int] = None) -> None:
         self._grammar: parglare.grammar.Grammar = env.grammar
-        self._parser = parglare.Parser(self._grammar, build_tree=True)
-        random.seed(seed)
+        self._prng = random.Random(seed)
 
         # parglare adds an extra non-terminal S' for the augmented rule S' -> [start_symbol]
         self._num_nonterminals: int = len(self._grammar.nonterminals) - 1
@@ -33,12 +35,14 @@ class UniformRandomSampler:
         self._build_f_memo(n)
         self._build_f_prime_memo(n)
 
-        self._actions = []
-        self._curr_idx = None
+        self._actions: List[parglare.grammar.Production] = []
+        self._converted_actions: List[Tuple[int, int]] = []
+        self._curr_idx: Optional[int] = None
 
-    def _build_f_memo(self, n: int):
+    def _build_f_memo(self, n: int) -> None:
 
-        f_memo_tmp = [[] for _ in range(n + 1)]
+        f_memo_tmp: List[List[Optional[List[int]]]] = [[]
+                                                       for _ in range(n + 1)]
         for _n in range(n + 1):
             f_memo_tmp[_n] = [[] for _ in range(self._num_nonterminals)]
         for _n in range(n + 1):
@@ -46,9 +50,10 @@ class UniformRandomSampler:
                 f_memo_tmp[_n][i] = None
         self._f_memo = f_memo_tmp
 
-    def _build_f_prime_memo(self, n: int):
+    def _build_f_prime_memo(self, n: int) -> None:
 
-        f_prime_memo_tmp = [[] for _ in range(n + 1)]
+        f_prime_memo_tmp: List[List[List[List[Optional[List[int]]]]]] = [
+            [] for _ in range(n + 1)]
         for _n in range(n + 1):
             f_prime_memo_tmp[_n] = [[] for _ in range(self._num_nonterminals)]
         for _n in range(n + 1):
@@ -68,6 +73,7 @@ class UniformRandomSampler:
         if self._f_memo[n][i] is None:
             self._f_memo[n][i] = [sum(self._f_prime(n, i, j, 0)) for j in range(
                 len(self._nonterminals[i].productions))]
+        assert isinstance(self._f_memo[n][i], list)
         return self._f_memo[n][i]
 
     def _f_prime(self, n: int, i: int, j: int, k: int) -> List[int]:
@@ -105,13 +111,13 @@ class UniformRandomSampler:
                 idx = self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]
                 self._f_prime_memo[n][i][j][k] = [sum(self._f(l, idx)) * sum(self._f_prime(
                     n - l, i, j, k + 1)) for l in range(1, n - len(self._nonterminals[i].productions[j].rhs) + (k + 1) + 1)]
-        # print('self._f_prime', n, i, j, k,self._f_prime_memo[n][i][j][k])
+        assert isinstance(self._f_prime_memo[n][i][j][k], list)
         return self._f_prime_memo[n][i][j][k]
 
     def _choose(self, l: List[int]) -> int:
         "Return an index i between [0, len(l)) at random with probability l[i] / sum(l)"
 
-        return random.choices(range(len(l)), weights=l, k=1)[0]
+        return self._prng.choices(range(len(l)), weights=l, k=1)[0]
 
     def _g(self, n: int, i: int) -> List[parglare.grammar.Terminal]:
         "Generate a string of length n uniformly at random from a non-terminal N_i"
@@ -142,13 +148,13 @@ class UniformRandomSampler:
             l = self._choose(weights) + 1
             return self._g(l, self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]) + self._g_prime(n - l, i, j, k + 1)
 
-    def generate_actions(self, n: int):
+    def generate_actions(self, n: int) -> None:
         self._actions = []
         generated_symbols = self._g(n, 0)
 
         # TODO: copied from ParsedPlayback - refactor?
         actions = self._actions.copy()
-        self._actions = []
+        self._converted_actions = []
         self._curr_idx = 0
         symbol_list = [self._grammar.start_symbol]
         for production in actions:
@@ -158,12 +164,12 @@ class UniformRandomSampler:
             for i, symbol in enumerate(symbol_list):
                 if symbol == lhs:
                     symbol_list = symbol_list[:i] + rhs + symbol_list[i+1:]
-                    self._actions.append((i, production.prod_id - 1))
+                    self._converted_actions.append((i, production.prod_id - 1))
                     break
 
-    def get_action(self, obs, mask=None) -> Tuple[int, int]:
-        if self._curr_idx >= len(self._actions):
+    def get_action(self, obs: np.ndarray, mask: Optional[np.ndarray] = None) -> Tuple[int, int]:
+        if self._curr_idx is None or self._curr_idx >= len(self._converted_actions):
             self._curr_idx = 0
-        action = self._actions[self._curr_idx]
+        action = self._converted_actions[self._curr_idx]
         self._curr_idx += 1
         return action
