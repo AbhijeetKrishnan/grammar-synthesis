@@ -2,7 +2,7 @@ import argparse
 import random
 
 from grammar_synthesis import GrammarSynthesisEnv
-from grammar_synthesis.envs.examples import LOL
+from grammar_synthesis.examples import LOL
 from grammar_synthesis.policy import ParsedPlayback, RandomSampler, UniformRandomSampler
 
 

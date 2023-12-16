@@ -3,7 +3,7 @@ import random
 import gymnasium
 import pytest
 from grammar_synthesis.envs import GrammarSynthesisEnv
-from grammar_synthesis.envs.examples import LOL
+from grammar_synthesis.examples import LOL
 from grammar_synthesis.policy import ParsedPlayback, RandomSampler, UniformRandomSampler
 from gymnasium.utils.env_checker import check_env
 from gymnasium.utils.env_match import check_environments_match

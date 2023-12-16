@@ -16,6 +16,6 @@ FALSE: 'false';
 TRUE: 'true';
 NULL: 'null';
 COMMA: ',';
-number: /-?\d+(\.\d+)?(e|E[-+]?\d+)?/;
-string: /"((\\")|[^"])*"/;
+number: /-?\\d+(\\.\\d+)?(e|E[-+]?\\d+)?/;
+string: /"((\\\\")|[^"])*"/;
 """
