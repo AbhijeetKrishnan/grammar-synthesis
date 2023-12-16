@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "grammar-synthesis"
+version = "0.3.0"
+description = "A Gymnasium environment for CFG-based program synthesis."
+readme = "README.md"
+authors = [
+    { name = "Abhijeet Krishnan", email = "abhijeet.krishnan@gmail.com" },
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: The Unlicense (Unlicense)",
+    "Operating System :: OS Independent",
+]
+requires-python = ">= 3.11.3"
+dependencies = [
+    "gymnasium>=0.28.1",
+    "parglare>=0.16.1"
+]
+
+[project.urls]
+Repository = "https://github.com/AbhijeetKrishnan/grammar-synthesis"
+"Bug Tracker" = "https://github.com/AbhijeetKrishnan/grammar-synthesis/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "pytest"
+]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unreachable = true
+pretty = true
+exclude = [
+    "build",
+    "dist",
+    "venv",
+    "tests/**/*.py"
+]
+files = [
+    "src/grammar_synthesis/**/*.py",
+    "demo.py",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra -q",
+    "--import-mode=importlib"
+]
+testpaths = [
+    "tests"
+]
+console_output_style = "progress"

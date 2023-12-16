@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Tuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 from grammar_synthesis.envs import GrammarSynthesisEnv
 
@@ -11,5 +12,9 @@ class RandomSampler:
     def __init__(self, env: GrammarSynthesisEnv) -> None:
         self._action_space = env.action_space
 
-    def get_action(self, obs: np.ndarray, mask: Optional[np.ndarray] = None) -> int:
-        return int(self._action_space.sample(mask=mask))
+    def get_action(
+        self,
+        obs: NDArray[np.uintc],
+        mask: np.ndarray[Tuple[int], np.dtype[np.int8]] | None = None,
+    ) -> np.ulonglong:
+        return self._action_space.sample(mask=mask)

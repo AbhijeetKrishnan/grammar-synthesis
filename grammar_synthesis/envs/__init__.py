@@ -1,1 +1,0 @@
-from grammar_synthesis.envs.synthesis_env import GrammarSynthesisEnv

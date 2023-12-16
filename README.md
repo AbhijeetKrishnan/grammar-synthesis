@@ -1,5 +1,8 @@
 # grammar-synthesis
 
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
 A [Gymnasium](https://github.com/Farama-Foundation/Gymnasium)-based custom environment that uses [`parglare`](http://www.igordejanovic.net/parglare) to represent tasks for program synthesis using a context-free grammar (CFG).
 
 Program synthesis is the task of writing a program in a (programming) language that fits some specification.

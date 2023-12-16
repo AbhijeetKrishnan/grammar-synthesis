@@ -1,9 +1,10 @@
 import random
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import parglare
 import parglare.grammar
+from numpy.typing import NDArray
 
 from grammar_synthesis.envs.synthesis_env import GrammarSynthesisEnv
 
@@ -13,67 +14,71 @@ class UniformRandomSampler:
     A grammar synthesis policy that randomly samples from available actions by uniformly weighting the number of strings
     that can be produced.
 
-    Implements the algorithm due to McKenzie, B. (1997). Generating Strings at Random from a Context Free 
+    Implements the algorithm due to McKenzie, B. (1997). Generating Strings at Random from a Context Free
     Grammar. http://hdl.handle.net/10092/11231
     """
 
-    def __init__(self, env: GrammarSynthesisEnv, n: int, seed: Optional[int] = None) -> None:
+    def __init__(
+        self, env: GrammarSynthesisEnv, n: int, seed: int | None = None
+    ) -> None:
+        self._env = env
         self._grammar: parglare.grammar.Grammar = env.grammar
         self._prng = random.Random(seed)
 
         # parglare adds an extra non-terminal S' for the augmented rule S' -> [start_symbol]
         self._num_nonterminals: int = len(self._grammar.nonterminals) - 1
         self._nonterminals: List[parglare.grammar.NonTerminal] = [
-            value for key, value in self._grammar.nonterminals.items() if key != "S'"]
+            value for key, value in self._grammar.nonterminals.items() if key != "S'"
+        ]
         self._nt_idx: Dict[parglare.grammar.NonTerminal, int] = {
-            nonterminal: idx for nonterminal, idx in zip(self._nonterminals, range(self._num_nonterminals))}
+            nonterminal: idx
+            for nonterminal, idx in zip(
+                self._nonterminals, range(self._num_nonterminals)
+            )
+        }
         self._production_list: List[List[parglare.grammar.ProductionRHS]] = []
 
-        self._f_memo: List[List[Optional[List[int]]]] = []
-        self._f_prime_memo: List[List[List[List[Optional[List[int]]]]]] = []
+        self._f_memo: List[List[List[int]]] = []
+        self._f_prime_memo: List[List[List[List[List[int]]]]] = []
 
         self._build_f_memo(n)
         self._build_f_prime_memo(n)
 
         self._actions: List[parglare.grammar.Production] = []
         self._converted_actions: List[Tuple[int, int]] = []
-        self._curr_idx: Optional[int] = None
+        self._curr_idx: int | None = None
 
     def _build_f_memo(self, n: int) -> None:
-
-        f_memo_tmp: List[List[Optional[List[int]]]] = [[]
-                                                       for _ in range(n + 1)]
+        f_memo_tmp: List[List[List[int]]] = [[] for _ in range(n + 1)]
         for _n in range(n + 1):
             f_memo_tmp[_n] = [[] for _ in range(self._num_nonterminals)]
-        for _n in range(n + 1):
-            for i in range(self._num_nonterminals):
-                f_memo_tmp[_n][i] = None
         self._f_memo = f_memo_tmp
 
     def _build_f_prime_memo(self, n: int) -> None:
-
-        f_prime_memo_tmp: List[List[List[List[Optional[List[int]]]]]] = [
-            [] for _ in range(n + 1)]
+        f_prime_memo_tmp: List[List[List[List[List[int]]]]] = [[] for _ in range(n + 1)]
         for _n in range(n + 1):
             f_prime_memo_tmp[_n] = [[] for _ in range(self._num_nonterminals)]
         for _n in range(n + 1):
             for i in range(self._num_nonterminals):
-                f_prime_memo_tmp[_n][i] = [[] for _ in range(
-                    len(self._nonterminals[i].productions))]
+                f_prime_memo_tmp[_n][i] = [
+                    [] for _ in range(len(self._nonterminals[i].productions))
+                ]
         for _n in range(n + 1):
             for i in range(self._num_nonterminals):
                 for j in range(len(self._nonterminals[i].productions)):
-                    f_prime_memo_tmp[_n][i][j] = [None for _ in range(
-                        len(self._nonterminals[i].productions[j].rhs))]
+                    f_prime_memo_tmp[_n][i][j] = [
+                        [] for _ in range(len(self._nonterminals[i].productions[j].rhs))
+                    ]
         self._f_prime_memo = f_prime_memo_tmp
 
     def _f(self, n: int, i: int) -> List[int]:
-        "Return a list giving the number of strings of length n generated for each production N_i -> \alpha_(i,j)"
+        "Return a list giving the number of strings of length n generated for each production N_i -> α_(i,j)"
 
-        if self._f_memo[n][i] is None:
-            self._f_memo[n][i] = [sum(self._f_prime(n, i, j, 0)) for j in range(
-                len(self._nonterminals[i].productions))]
-        assert isinstance(self._f_memo[n][i], list)
+        if self._f_memo[n][i] == []:
+            self._f_memo[n][i] = [
+                sum(self._f_prime(n, i, j, 0))
+                for j in range(len(self._nonterminals[i].productions))
+            ]
         return self._f_memo[n][i]
 
     def _f_prime(self, n: int, i: int, j: int, k: int) -> List[int]:
@@ -91,10 +96,13 @@ class UniformRandomSampler:
 
         if n < 0:
             return []
-        if self._f_prime_memo[n][i][j][k] is None:
+        if self._f_prime_memo[n][i][j][k] == []:
             if n == 0:
-                self._f_prime_memo[n][i][j][k] = []
-            elif type(self._nonterminals[i].productions[j].rhs[k]) == parglare.grammar.Terminal:
+                pass
+            elif (
+                type(self._nonterminals[i].productions[j].rhs[k])
+                == parglare.grammar.Terminal
+            ):
                 # if last symbol of expansion
                 if k + 1 == len(self._nonterminals[i].productions[j].rhs):
                     if n == 1:
@@ -103,21 +111,27 @@ class UniformRandomSampler:
                         self._f_prime_memo[n][i][j][k] = [0]
                 else:
                     self._f_prime_memo[n][i][j][k] = [
-                        sum(self._f_prime(n - 1, i, j, k + 1))]
+                        sum(self._f_prime(n - 1, i, j, k + 1))
+                    ]
             elif k + 1 == len(self._nonterminals[i].productions[j].rhs):
                 idx = self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]
                 self._f_prime_memo[n][i][j][k] = [sum(self._f(n, idx))]
             else:
                 idx = self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]
-                self._f_prime_memo[n][i][j][k] = [sum(self._f(l, idx)) * sum(self._f_prime(
-                    n - l, i, j, k + 1)) for l in range(1, n - len(self._nonterminals[i].productions[j].rhs) + (k + 1) + 1)]
-        assert isinstance(self._f_prime_memo[n][i][j][k], list)
+                self._f_prime_memo[n][i][j][k] = [
+                    sum(self._f(partition_idx, idx))
+                    * sum(self._f_prime(n - partition_idx, i, j, k + 1))
+                    for partition_idx in range(
+                        1,
+                        n - len(self._nonterminals[i].productions[j].rhs) + (k + 1) + 1,
+                    )
+                ]
         return self._f_prime_memo[n][i][j][k]
 
-    def _choose(self, l: List[int]) -> int:
-        "Return an index i between [0, len(l)) at random with probability l[i] / sum(l)"
+    def _choose(self, weights: List[int]) -> int:
+        "Return an index i between [0, len(weights) at random with probability weights[i] / sum(weights)"
 
-        return self._prng.choices(range(len(l)), weights=l, k=1)[0]
+        return self._prng.choices(range(len(weights)), weights=weights, k=1)[0]
 
     def _g(self, n: int, i: int) -> List[parglare.grammar.Terminal]:
         "Generate a string of length n uniformly at random from a non-terminal N_i"
@@ -128,29 +142,38 @@ class UniformRandomSampler:
         self._actions.append(self._nonterminals[i].productions[r])
         return self._g_prime(n, i, r, 0)
 
-    def _g_prime(self, n: int, i: int, j: int, k: int) -> List[parglare.grammar.Terminal]:
+    def _g_prime(
+        self, n: int, i: int, j: int, k: int
+    ) -> List[parglare.grammar.Terminal]:
         """
         Generate a string of length n uniformly at random from among all the strings derivable from the symbols
-        x_(i,j,k) ... x_(i,j,t_(i,j)) taken from the RHS of the production N_i -> \alpha_(i,j)
+        x_(i,j,k) ... x_(i,j,t_(i,j)) taken from the RHS of the production N_i -> α_(i,j)
         """
 
         if n < 0:
             return []
-        if type(self._nonterminals[i].productions[j].rhs[k]) == parglare.grammar.Terminal:
+        if (
+            type(self._nonterminals[i].productions[j].rhs[k])
+            == parglare.grammar.Terminal
+        ):
             if k + 1 == len(self._nonterminals[i].productions[j].rhs):
                 return [self._nonterminals[i].productions[j].rhs[k]]
             else:
-                return [self._nonterminals[i].productions[j].rhs[k]] + self._g_prime(n - 1, i, j, k + 1)
+                return [self._nonterminals[i].productions[j].rhs[k]] + self._g_prime(
+                    n - 1, i, j, k + 1
+                )
         if k + 1 == len(self._nonterminals[i].productions[j].rhs):
             return self._g(n, self._nt_idx[self._nonterminals[i].productions[j].rhs[k]])
         else:
             weights = self._f_prime(n, i, j, k)
-            l = self._choose(weights) + 1
-            return self._g(l, self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]) + self._g_prime(n - l, i, j, k + 1)
+            partition_idx = self._choose(weights) + 1
+            return self._g(
+                partition_idx, self._nt_idx[self._nonterminals[i].productions[j].rhs[k]]
+            ) + self._g_prime(n - partition_idx, i, j, k + 1)
 
     def generate_actions(self, n: int) -> None:
         self._actions = []
-        generated_symbols = self._g(n, 0)
+        _ = self._g(n, 0)
 
         # TODO: copied from ParsedPlayback - refactor?
         actions = self._actions.copy()
@@ -163,13 +186,17 @@ class UniformRandomSampler:
             # replace first instance of lhs in symbol_list with rhs
             for i, symbol in enumerate(symbol_list):
                 if symbol == lhs:
-                    symbol_list = symbol_list[:i] + rhs + symbol_list[i+1:]
+                    symbol_list = symbol_list[:i] + rhs + symbol_list[i + 1 :]
                     self._converted_actions.append((i, production.prod_id - 1))
                     break
 
-    def get_action(self, obs: np.ndarray, mask: Optional[np.ndarray] = None) -> Tuple[int, int]:
+    def get_action(
+        self,
+        obs: NDArray[np.uintc],
+        mask: np.ndarray[Tuple[int], np.dtype[np.int8]] | None = None,
+    ) -> np.ulonglong:
         if self._curr_idx is None or self._curr_idx >= len(self._converted_actions):
             self._curr_idx = 0
-        action = self._converted_actions[self._curr_idx]
+        decoded_action = self._converted_actions[self._curr_idx]
         self._curr_idx += 1
-        return action
+        return self._env.encode_action(decoded_action)
