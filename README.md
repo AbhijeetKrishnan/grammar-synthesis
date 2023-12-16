@@ -25,7 +25,7 @@ The grammar synthesis task is to find a string $s$ belonging to the language $L(
 ```bash
 git clone https://github.com/AbhijeetKrishnan/grammar-synthesis.git
 cd grammar-synthesis
-python3 setup.py install
+python3 -m pip install .
 ```
 
 ## Usage
@@ -38,7 +38,7 @@ s: s s | "l" a "l";
 a: "o" a | "o";
 ```
 
-This sample grammar and others are provided under `grammar_synthesis/envs/assets/`.
+This sample grammar and others are provided under `grammar_synthesis.examples`.
 
 The below snippet implements a random policy for generating a string from a grammar. The reward function used is simply
 the length of the synthesized program.
@@ -53,7 +53,7 @@ def reward_fn(program_text: str, mdp_config: dict):
 
 env = gymnasium.make(
     'GrammarSynthesisEnv-v0',
-    grammar=open('grammar_synthesis/envs/assets/example.lark').read(),
+    grammar=grammar_synthesis.examples.LOL,
     start_symbol='s',
     reward_fn=reward_fn,
     max_len=20)
@@ -81,7 +81,7 @@ l o o l
 </pre>
 
 
-More policies are provided under `grammar_synthesis/policy/`. The current list of included policies are -
+More policies are provided under `grammar_synthesis.policy`. The current list of included policies are -
 
 1. **Random**: samples a random non-terminal and valid rule at each step
 2. **Uniform Random**: implements the algorithm described in [McKenzie, B. (1997)](http://hdl.handle.net/10092/11231) to synthesize strings at random from a CFG
@@ -104,7 +104,7 @@ s_i &= a \bmod l*{\text{max}}
 \end{align}
 $
 
-The implementation provides an action mask returned in the `info` dict as `info['action_mask']` that masks out invalid actions. Thus, we can sample valid actions repeatedly using `env.action_space.sample(mask=mask)`.
+The implementation returns an action mask in the `info` dict as `info['action_mask']` that masks out invalid actions. Thus, we can sample valid actions repeatedly using `env.action_space.sample(mask=mask)`.
 
 ## Theory
 
