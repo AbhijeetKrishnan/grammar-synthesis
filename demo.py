@@ -1,7 +1,8 @@
 import argparse
 import random
 
-from grammar_synthesis import GrammarSynthesisEnv
+import gymnasium
+from grammar_synthesis.envs import GrammarSynthesisEnv
 from grammar_synthesis.examples import LOL
 from grammar_synthesis.policy import ParsedPlayback, RandomSampler, UniformRandomSampler
 
@@ -13,16 +14,18 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    env = GrammarSynthesisEnv(
+    env = gymnasium.make(
+        "GrammarSynthesisEnv-v1",
         grammar=LOL,
         reward_fn=lambda program_text, mdp_config: len(program_text),
         max_len=args.max_len,
     )
+    assert isinstance(env.unwrapped, GrammarSynthesisEnv)
 
     random.seed(args.seed)
     num_episodes = args.num_episodes
 
-    random_agent = RandomSampler(env)
+    random_agent = RandomSampler(env.unwrapped)
     print("=" * 5, "Random Agent", "=" * 5)
     for i in range(num_episodes):
         obs, info = env.reset(seed=args.seed + i)
@@ -34,7 +37,7 @@ def main() -> None:
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
-    playback_agent = ParsedPlayback(env)
+    playback_agent = ParsedPlayback(env.unwrapped)
     program_text = """lollol"""
     playback_agent.build_actions(program_text)
     print("=" * 5, f"Playback Agent ({program_text})", "=" * 5)
@@ -48,7 +51,7 @@ def main() -> None:
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
-    uniform_agent = UniformRandomSampler(env, args.max_len, seed=args.seed)
+    uniform_agent = UniformRandomSampler(env.unwrapped, args.max_len, seed=args.seed)
     print("=" * 5, "Uniform Random Agent", "=" * 5)
     for i in range(num_episodes):
         n = random.randint(3, args.max_len)
@@ -63,7 +66,7 @@ def main() -> None:
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
-    env.close()
+    env.close()  # type: ignore
 
 
 if __name__ == "__main__":
