@@ -17,6 +17,7 @@ def env():
         grammar=LOL,
         reward_fn=lambda program_text, mdp_config: len(program_text),
         max_len=70,
+        derivation_dir="right",
     )
     yield env
     env.close()

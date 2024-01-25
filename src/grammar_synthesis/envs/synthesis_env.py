@@ -4,7 +4,7 @@ import gymnasium
 import numpy as np
 import parglare
 import parglare.grammar
-from gymnasium.spaces import Discrete, MultiDiscrete
+from gymnasium.spaces import Discrete, Sequence
 from numpy.typing import NDArray
 
 LEGAL = 1
@@ -21,7 +21,8 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
         self,
         grammar: str,
         reward_fn: Callable[[str, Dict[str, Any] | None], float],
-        max_len: int = 100,
+        max_len: int | None = None,
+        derivation_dir: str = "right",
         render_mode: str | None = "human",
         truncation_reward: float = 0.0,
         mdp_config: Dict[str, Any] | None = None,
@@ -36,7 +37,10 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
                 The reward function for the MDP from finished program used as policy.
             max_len (int, optional):
                 The maximum allowed sequence length.
-                Defaults to `100`
+                Defaults to `None`
+            derivation_dir (str, optional):
+                Derive the left-most or right-most derivation.
+                Defaults to `"right"`
             render_mode (str, optional):
                 The rendering mode.
                 Defaults to `None`
@@ -50,6 +54,7 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
 
         self.reward_fn = reward_fn
         self.max_len = max_len
+        self.derivation_dir = derivation_dir
         self.truncation_reward = truncation_reward
         self.mdp_config = mdp_config
 
@@ -92,18 +97,16 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
 
         A state is a list of tokens consisting of non-terminals and terminals in the leaf nodes of the partial parse tree
         """
-        self.observation_space = MultiDiscrete(  # type: ignore
-            [self.vocabulary_size] * max_len, dtype=np.uintc
-        )  # could use spaces.Sequence or tokenizers pkg
+        self.observation_space = Sequence(Discrete(self.vocabulary_size), stack=True)  # type: ignore
 
         """
         Actions
 
-        An action is a single production rule applied to a single non-terminal in the current state
+        An action is a single production rule applied to the right-most applicable non-terminal in the current state
         """
         self.action_space = Discrete(  # type: ignore
-            self.num_rules * self.max_len
-        )  # could use spaces.Sequence but length needs to be equal to sequence across obs and actions
+            self.num_rules
+        )
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
@@ -111,13 +114,18 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
         self.window = None
         self.clock = None
 
-    def _get_obs(self) -> ObsType:
+    def _get_obs(self, pad_len: int | None = None) -> ObsType:
         "Construct observation from environment state"
 
-        return np.pad(
-            np.array([self.vocabulary[token] for token in self.symbols], dtype=np.int8),
-            (0, max(0, self.max_len - len(self.symbols))),
+        tokens = np.array(
+            [self.vocabulary[token] for token in self.symbols], dtype=np.uint8
         )
+        if pad_len:
+            tokens = np.pad(
+                tokens,
+                (0, max(0, pad_len - len(self.symbols))),
+            )
+        return tokens
 
     def _get_info(self, is_valid: bool = True) -> Dict[str, Any]:
         "Obtain auxiliary info returned by `step` and `reset`"
@@ -163,62 +171,57 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
 
     def get_action_mask(self) -> np.ndarray[Tuple[int], np.dtype[np.int8]]:
         "Return valid action mask for current state"
-        # TODO: make more efficient by pre-computing some stuff or using np loops
 
-        mask = np.zeros(
-            (self.num_rules * self.max_len), dtype=np.int8
-        )  # 0 represents illegal action
-        for nt_idx, symbol in enumerate(self.symbols):
-            if isinstance(symbol, parglare.grammar.NonTerminal):
-                for rule in self.grammar.get_productions(symbol.name):
-                    rule_idx = rule.prod_id - 1
-                    mask[rule_idx * self.max_len + nt_idx] = LEGAL
-        return mask
-
-    def encode_action(self, decoded_action: Tuple[int, int]) -> ActType:
-        "Encode a (non-terminal index, rule index) as an action"
-
-        nt_idx, rule_idx = decoded_action
-        action = rule_idx * self.max_len + nt_idx
-        return np.uint64(action)
-
-    def decode_action(self, action: ActType) -> Tuple[int, int]:
-        "Decode an action as (non-terminal index, rule index)"
-
-        rule_idx, nt_idx = (
-            int(action) // self.max_len,
-            int(action) % self.max_len,
+        mask = np.zeros(self.num_rules, dtype=np.int8)  # 0 represents illegal action
+        state_nts = set(
+            [
+                symbol
+                for symbol in self.symbols
+                if isinstance(symbol, parglare.grammar.NonTerminal)
+            ]
         )
-        return nt_idx, rule_idx
+        for nt in state_nts:
+            for rule in self.grammar.get_productions(nt.name):
+                rule_idx = rule.prod_id - 1
+                mask[rule_idx] = LEGAL
+        return mask
 
     def is_valid(self, action: ActType) -> bool:
         "Test if an action is valid"
 
-        nt_idx, rule_idx = self.decode_action(action)
-
-        return (
-            nt_idx < len(self.symbols)
-            and rule_idx < len(self.rules)
-            and self.symbols[nt_idx] == self.rules[rule_idx].symbol
-        )
+        if not 0 <= action < self.num_rules:
+            return False
+        nt = self.rules[action].symbol
+        return nt in self.symbols
 
     def step(
         self, action: ActType
     ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
-        nt_idx, rule_idx = self.decode_action(action)
-
-        # if valid action, replace existing non-terminal with rule expansion
+        # if valid action, replace (left|right)-most non-terminal with rule expansion
         if is_valid := self.is_valid(action):
-            self.symbols[nt_idx : nt_idx + 1] = list(self.rules[rule_idx].rhs)
-        else:
-            print(
-                f"Attempted invalid action {action} with NT idx {nt_idx} and rule idx {rule_idx}"
+            if self.derivation_dir == "right":
+                symbol_itr = range(len(self.symbols) - 1, -1, -1)
+            else:
+                symbol_itr = range(len(self.symbols))
+            nt_idx = next(
+                (
+                    idx
+                    for idx in symbol_itr
+                    if isinstance(self.symbols[idx], parglare.grammar.NonTerminal)
+                ),
             )
+            self.symbols[nt_idx : nt_idx + 1] = list(self.rules[action].rhs)
+        else:
+            print(f"Attempted invalid action {action} with rule idx {action}")
 
         terminated = all(symbol in self.terminals for symbol in self.symbols)
-        truncated = len(self.symbols) > self.max_len
-        if truncated:
-            self.symbols = self.symbols[: self.max_len]
+
+        if self.max_len:
+            truncated = len(self.symbols) > self.max_len
+            if truncated:
+                self.symbols = self.symbols[: self.max_len]
+        else:
+            truncated = False
 
         if (
             terminated
@@ -230,7 +233,7 @@ class GrammarSynthesisEnv(gymnasium.Env[ObsType, ActType]):
         else:  # partial program; cannot be used as policy
             # TODO: allow specifying a custom function to evaluate a partial program
             reward = 0.0
-        obs = self._get_obs()
+        obs = self._get_obs(pad_len=self.max_len)
         info = self._get_info(is_valid=is_valid)
 
         return obs, reward, terminated, truncated, info

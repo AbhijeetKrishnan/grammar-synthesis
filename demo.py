@@ -19,6 +19,7 @@ def main() -> None:
         grammar=LOL,
         reward_fn=lambda program_text, mdp_config: len(program_text),
         max_len=args.max_len,
+        derivation_dir="right",
     )
     assert isinstance(env.unwrapped, GrammarSynthesisEnv)
 

@@ -28,7 +28,7 @@ class ParsedPlayback:
         self._grammar = env.grammar
         self._parser = parglare.Parser(self._grammar, build_tree=True)
 
-        self._actions: List[Tuple[int, int]] = []
+        self._actions: List[np.uint8] = []
         self._curr_idx: int | None = None
 
     def _visit(
@@ -60,11 +60,11 @@ class ParsedPlayback:
         for production in actions:
             lhs = production.symbol
             rhs = production.rhs
-            # replace first instance of lhs in symbol_list with rhs
+            # replace left-most instance of lhs in symbol_list with rhs
             for i, symbol in enumerate(symbol_list):
                 if symbol == lhs:
                     symbol_list = symbol_list[:i] + rhs + symbol_list[i + 1 :]
-                    self._actions.append((i, production.prod_id - 1))
+                    self._actions.append(production.prod_id - 1)
                     break
 
     def get_action(
@@ -76,4 +76,4 @@ class ParsedPlayback:
             self._curr_idx = 0
         decoded_action = self._actions[self._curr_idx]
         self._curr_idx += 1
-        return self._env.encode_action(decoded_action)
+        return decoded_action
