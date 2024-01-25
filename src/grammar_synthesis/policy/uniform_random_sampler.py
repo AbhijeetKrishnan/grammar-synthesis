@@ -22,7 +22,7 @@ class UniformRandomSampler:
         self, env: GrammarSynthesisEnv, n: int, seed: int | None = None
     ) -> None:
         self._env = env
-        self._grammar: parglare.grammar.Grammar = self._env.grammar
+        self._grammar: parglare.grammar.Grammar = env.grammar
         self._prng = random.Random(seed)
 
         # parglare adds an extra non-terminal S' for the augmented rule S' -> [start_symbol]
