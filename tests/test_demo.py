@@ -4,7 +4,12 @@ import gymnasium
 import pytest
 from grammar_synthesis.envs import GrammarSynthesisEnv
 from grammar_synthesis.examples import LOL
-from grammar_synthesis.policy import ParsedPlayback, RandomSampler, UniformRandomSampler
+from grammar_synthesis.policy import (
+    ParsedPlayback,
+    UniformLengthSampler,
+    UniformRandomSampler,
+    WeightedRandomSampler,
+)
 from gymnasium.utils.env_checker import check_env
 from gymnasium.utils.env_match import check_environments_match
 from gymnasium.utils.performance import benchmark_init, benchmark_render, benchmark_step
@@ -46,8 +51,8 @@ def test_env_match(env):
     check_environments_match(env, env2, 100)
 
 
-def test_random(env):
-    random_agent = RandomSampler(env.unwrapped)
+def test_uniform_random(env):
+    agent = UniformRandomSampler(env.unwrapped)
     num_episodes = 10
     for i in range(num_episodes):
         obs, info = env.reset(seed=1)
@@ -55,32 +60,46 @@ def test_random(env):
         truncated = False
         while not terminated and not truncated:
             mask = info["action_mask"]
-            action = random_agent.get_action(obs, mask)
+            action = agent.get_action(obs, mask)
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
 
-def test_uniform_random(env):
-    uniform_agent = UniformRandomSampler(env.unwrapped, 70, seed=1)
+def test_weighted_random(env):
+    weights = [0.1, 0.2, 0.3, 0.4]
+    agent = WeightedRandomSampler(env.unwrapped, weights)
+    num_episodes = 10
+    for i in range(num_episodes):
+        obs, info = env.reset(seed=1)
+        terminated = False
+        truncated = False
+        while not terminated and not truncated:
+            mask = info["action_mask"]
+            action = agent.get_action(obs, mask)
+            obs, reward, terminated, truncated, info = env.step(action)
+
+
+def test_uniform_length(env):
+    agent = UniformLengthSampler(env.unwrapped, 70, seed=1)
     num_episodes = 10
     for i in range(num_episodes):
         n = random.randint(3, 70)
-        uniform_agent.generate_actions(n)
+        agent.generate_actions(n)
 
         obs, info = env.reset(seed=1)
         terminated = False
         truncated = False
         while not terminated and not truncated:
             mask = info["action_mask"]
-            action = uniform_agent.get_action(obs, mask)
+            action = agent.get_action(obs, mask)
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
 
 def test_parsed_playback(env):
-    playback_agent = ParsedPlayback(env.unwrapped)
+    agent = ParsedPlayback(env.unwrapped)
     program_text = """lollol"""
-    playback_agent.build_actions(program_text)
+    agent.build_actions(program_text)
     num_episodes = 10
     for i in range(num_episodes):
         obs, info = env.reset(seed=1)
@@ -88,6 +107,6 @@ def test_parsed_playback(env):
         truncated = False
         while not terminated and not truncated:
             mask = info["action_mask"]
-            action = playback_agent.get_action(obs, mask)
+            action = agent.get_action(obs, mask)
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()

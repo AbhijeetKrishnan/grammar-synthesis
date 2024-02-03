@@ -4,7 +4,12 @@ import random
 import gymnasium
 from grammar_synthesis.envs import GrammarSynthesisEnv
 from grammar_synthesis.examples import LOL
-from grammar_synthesis.policy import ParsedPlayback, RandomSampler, UniformRandomSampler
+from grammar_synthesis.policy import (
+    ParsedPlayback,
+    UniformLengthSampler,
+    UniformRandomSampler,
+    WeightedRandomSampler,
+)
 
 
 def main() -> None:
@@ -26,8 +31,8 @@ def main() -> None:
     random.seed(args.seed)
     num_episodes = args.num_episodes
 
-    random_agent = RandomSampler(env.unwrapped)
-    print("=" * 5, "Random Agent", "=" * 5)
+    random_agent = UniformRandomSampler(env.unwrapped)
+    print("=" * 5, "Uniform Random Agent", "=" * 5)
     for i in range(num_episodes):
         obs, info = env.reset(seed=args.seed + i)
         terminated = False
@@ -35,6 +40,19 @@ def main() -> None:
         while not terminated and not truncated:
             mask = info["action_mask"]
             action = random_agent.get_action(obs, mask)
+            obs, reward, terminated, truncated, info = env.step(action)
+        env.render()
+
+    weights = [0.1, 0.2, 0.3, 0.4]
+    weighted_agent = WeightedRandomSampler(env.unwrapped, weights)
+    print("=" * 5, "Weighted Random Agent", "=" * 5)
+    for i in range(num_episodes):
+        obs, info = env.reset(seed=args.seed + i)
+        terminated = False
+        truncated = False
+        while not terminated and not truncated:
+            mask = info["action_mask"]
+            action = weighted_agent.get_action(obs, mask)
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
@@ -52,8 +70,8 @@ def main() -> None:
             obs, reward, terminated, truncated, info = env.step(action)
         env.render()
 
-    uniform_agent = UniformRandomSampler(env.unwrapped, args.max_len, seed=args.seed)
-    print("=" * 5, "Uniform Random Agent", "=" * 5)
+    uniform_agent = UniformLengthSampler(env.unwrapped, args.max_len, seed=args.seed)
+    print("=" * 5, "Uniform Length Agent", "=" * 5)
     for i in range(num_episodes):
         n = random.randint(3, args.max_len)
         uniform_agent.generate_actions(n)

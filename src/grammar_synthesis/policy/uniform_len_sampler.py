@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from grammar_synthesis.envs.synthesis_env import GrammarSynthesisEnv
 
 
-class UniformRandomSampler:
+class UniformLengthSampler:
     """
     A grammar synthesis policy that randomly samples from available actions by uniformly weighting the number of strings
     that can be produced.
